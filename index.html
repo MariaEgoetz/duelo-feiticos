@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duelo de Feitiços</title>
+<script src="./lib/tf.min.js"></script>
+<script src="./lib/tf-backend-wasm.min.js"></script>
+<style>
+  :root {
+    --fundo: #0b0a1a;
+    --painel: #15132b;
+    --painel2: #1d1a3a;
+    --borda: #2e2a55;
+    --texto: #ece8ff;
+    --suave: #9b95c9;
+    --ouro: #f5c84c;
+    --roxo: #8b5cf6;
+    --verde: #4ade80;
+    --vermelho: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: radial-gradient(ellipse at top, #1b1640 0%, var(--fundo) 60%) fixed;
+    color: var(--texto); font-family: Inter, system-ui, sans-serif; font-size: 14px; min-height: 100vh;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; flex-wrap: wrap; }
+  h1 { font-family: Cinzel, serif; font-weight: 800; letter-spacing: .04em; margin: 0; font-size: 26px;
+       background: linear-gradient(90deg, #ffe08a, #f5c84c, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--suave); font-size: 12px; margin-top: 2px; }
+  nav { display: flex; gap: 6px; background: var(--painel); padding: 5px; border-radius: 12px; border: 1px solid var(--borda); flex-wrap: wrap; }
+  nav button { background: none; border: 0; color: var(--suave); font: 600 13px Inter, sans-serif; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  nav button.ativa { background: var(--roxo); color: #fff; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; padding: 0 20px 20px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 0 16px 16px; } header { padding: 12px 16px; } }
+  .palco { position: relative; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--borda); aspect-ratio: 16 / 9; touch-action: none; }
+  .palco canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .palco video { display: none; }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+             background: rgba(8, 6, 22, .82); text-align: center; padding: 20px; }
+  .overlay.oculto { display: none; }
+  .overlay h2 { font-family: Cinzel, serif; font-size: 34px; margin: 0; color: var(--ouro); }
+  .overlay p { margin: 0; color: var(--suave); max-width: 520px; }
+  .status { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--suave); background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 20px; }
+  aside { background: var(--painel); border: 1px solid var(--borda); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .aba { display: none; flex-direction: column; gap: 14px; }
+  .aba.ativa { display: flex; }
+  .cartao { background: var(--painel2); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; }
+  .rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); margin-bottom: 8px; }
+  h3 { margin: 0 0 4px; font-size: 16px; }
+  p.dica { margin: 0; color: var(--suave); font-size: 13px; line-height: 1.45; }
+  button.btn { background: var(--roxo); color: #fff; border: 0; border-radius: 10px; padding: 10px 14px; font: 600 13px Inter, sans-serif; cursor: pointer; }
+  button.btn:hover { filter: brightness(1.1); }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  button.sec { background: transparent; border: 1px solid var(--borda); color: var(--texto); }
+  button.ouro { background: var(--ouro); color: #1a1300; }
+  .linha { display: flex; gap: 8px; flex-wrap: wrap; }
+  .simbolos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .simb { background: var(--painel); border: 2px solid var(--borda); border-radius: 10px; padding: 6px 2px; cursor: pointer; text-align: center; color: var(--texto); font: 600 11px Inter, sans-serif; }
+  .simb canvas { width: 44px; height: 44px; display: block; margin: 0 auto 2px; }
+  .simb .n { color: var(--suave); font-weight: 500; }
+  .simb.sel { border-color: var(--ouro); background: #2a2350; }
+  .barra { height: 8px; background: #2a2650; border-radius: 6px; overflow: hidden; }
+  .barra > div { height: 100%; background: var(--ouro); width: 0; transition: width .2s; }
+  .prob { display: grid; grid-template-columns: 80px 1fr 42px; gap: 8px; align-items: center; margin: 5px 0; font-size: 12px; }
+  .prob .barra > div { background: var(--roxo); }
+  .prob.top .barra > div { background: var(--verde); }
+  .grande { font-size: 28px; font-weight: 700; font-family: Cinzel, serif; }
+  table.cm { border-collapse: collapse; font-size: 11px; width: 100%; }
+  table.cm td, table.cm th { border: 1px solid var(--borda); padding: 4px; text-align: center; }
+  table.cm th { color: var(--suave); font-weight: 600; }
+  canvas.grafico { width: 100%; height: 130px; display: block; background: #110f24; border-radius: 8px; }
+  canvas.mini { width: 100%; height: 150px; display: block; background: #110f24; border-radius: 8px; }
+  .legenda { display: grid; grid-template-columns: 40px 1fr; gap: 6px 10px; align-items: center; }
+  .legenda canvas { width: 36px; height: 36px; }
+  ol.rank { margin: 0; padding-left: 20px; }
+  ol.rank li { display: flex; justify-content: space-between; padding: 3px 0; }
+  input.nome { background: #0e0c22; border: 1px solid var(--borda); color: var(--texto); border-radius: 10px; padding: 10px 14px; font: 600 16px Inter, sans-serif; text-align: center; width: 260px; }
+  label.campo { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+  label.campo input[type=number] { width: 70px; background: #0e0c22; border: 1px solid var(--borda); color: var(--texto); border-radius: 6px; padding: 4px 6px; }
+  pre.arq { margin: 0; font-size: 11px; color: var(--suave); white-space: pre-wrap; line-height: 1.5; }
+</style>
+</head>
+<body>
+<script>if (location.protocol === 'file:') document.addEventListener('DOMContentLoaded', () => { document.body.innerHTML = '<div style="padding:40px;font:18px sans-serif;color:#fff">Abra o jogo pelo arquivo <b>INICIAR.bat</b> (não pelo duplo clique no index.html).</div>'; });</script>
+<header>
+  <div>
+    <h1>Duelo de Feitiços</h1>
+    <div class="sub">Desenhe símbolos no ar e uma rede neural LSTM reconhece o feitiço</div>
+  </div>
+  <nav id="abas">
+    <button data-aba="coleta" class="ativa">1. Coleta de dados</button>
+    <button data-aba="treino">2. Treinar LSTM</button>
+    <button data-aba="teste">3. Testar</button>
+    <button data-aba="jogo">4. Jogar</button>
+  </nav>
+</header>
+
+<main>
+  <section>
+    <div class="palco" id="palco">
+      <video id="video" playsinline muted></video>
+      <canvas id="tela" width="1280" height="720"></canvas>
+      <div class="overlay" id="ovInicio">
+        <h2>Duelo de Feitiços</h2>
+        <p>Aponte com o dedo indicador (os outros dedos fechados) para desenhar no ar. Abra a mão para terminar o símbolo. Também dá para desenhar com o mouse.</p>
+        <button class="btn ouro" id="btnCamera">Ligar câmera</button>
+        <p id="msgCamera" style="font-size:12px"></p>
+      </div>
+      <div class="overlay oculto" id="ovFim">
+        <h2>Fim do duelo</h2>
+        <div class="grande" id="fimPontos">0 pontos</div>
+        <p id="fimInfo"></p>
+        <input class="nome" id="inpNome" maxlength="18" placeholder="Seu nome">
+        <div class="linha"><button class="btn ouro" id="btnSalvarNome">Salvar no ranking</button><button class="btn sec" id="btnPular">Pular</button></div>
+      </div>
+      <div class="status" id="status">Câmera desligada · mouse ativo</div>
+    </div>
+  </section>
+
+  <aside>
+    <!-- ================= COLETA ================= -->
+    <div class="aba ativa" id="aba-coleta">
+      <div>
+        <div class="rotulo">Etapa 1 · Dataset</div>
+        <h3>Ensine os símbolos</h3>
+        <p class="dica">Escolha um símbolo e desenhe-o várias vezes. Cada traço vira um exemplo. Meta: <b>40 ou mais</b> por símbolo, de jeitos e tamanhos variados.</p>
+      </div>
+      <div class="simbolos" id="selColeta"></div>
+      <div class="cartao">
+        <div class="rotulo">Progresso</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span id="totalEx">0 exemplos</span><span id="metaEx" style="color:var(--suave)"></span></div>
+        <div class="barra"><div id="barraTotal"></div></div>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Último exemplo (32 pontos)</div>
+        <canvas class="mini" id="miniColeta" width="600" height="300"></canvas>
+      </div>
+      <div class="linha">
+        <button class="btn sec" id="btnDesfazer">Desfazer último</button>
+        <button class="btn sec" id="btnLimparClasse">Apagar este símbolo</button>
+      </div>
+      <div class="linha">
+        <button class="btn sec" id="btnExportar">Exportar dados</button>
+        <button class="btn sec" id="btnImportar">Importar dados</button>
+        <input type="file" id="arqImportar" accept=".json" hidden>
+      </div>
+    </div>
+
+    <!-- ================= TREINO ================= -->
+    <div class="aba" id="aba-treino">
+      <div>
+        <div class="rotulo">Etapa 2 · Rede neural</div>
+        <h3>Treinar a LSTM</h3>
+        <p class="dica">80% dos exemplos treinam a rede e 20% ficam guardados para validar com traços que ela nunca viu.</p>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Arquitetura</div>
+        <pre class="arq" id="arquitetura"></pre>
+      </div>
+      <div class="cartao" style="display:flex;flex-direction:column;gap:8px">
+        <label class="campo">Épocas máximas <input type="number" id="inpEpocas" value="60" min="5" max="300"></label>
+        <label class="campo">Data augmentation (cópias por exemplo) <input type="number" id="inpAug" value="2" min="0" max="10"></label>
+        <button class="btn ouro" id="btnTreinar">Treinar LSTM</button>
+        <div id="msgTreino" style="color:var(--suave);font-size:12px"></div>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Loss (erro)</div>
+        <canvas class="grafico" id="grafLoss" width="700" height="260"></canvas>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Acurácia</div>
+        <canvas class="grafico" id="grafAcc" width="700" height="260"></canvas>
+        <div style="font-size:11px;color:var(--suave);margin-top:6px"><span style="color:#c084fc">■</span> treino &nbsp; <span style="color:#f5c84c">■</span> validação</div>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Matriz de confusão (validação)</div>
+        <div id="matriz" style="color:var(--suave);font-size:12px">Treine para ver.</div>
+      </div>
+      <button class="btn sec" id="btnApagarModelo">Apagar modelo salvo</button>
+    </div>
+
+    <!-- ================= TESTE ================= -->
+    <div class="aba" id="aba-teste">
+      <div>
+        <div class="rotulo">Etapa 3 · Teste livre</div>
+        <h3>O que a LSTM vê</h3>
+        <p class="dica">Desenhe qualquer símbolo. O traço vira uma sequência de 32 pontos (do roxo ao amarelo), e a LSTM lê ponto a ponto, em ordem.</p>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Sequência de entrada</div>
+        <canvas class="mini" id="miniTeste" width="600" height="300"></canvas>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Probabilidade de cada símbolo</div>
+        <div id="probsTeste"><p class="dica">Desenhe para ver.</p></div>
+      </div>
+    </div>
+
+    <!-- ================= JOGO ================= -->
+    <div class="aba" id="aba-jogo">
+      <div>
+        <div class="rotulo">Etapa 4 · Duelo</div>
+        <h3>Derrote os monstros</h3>
+        <p class="dica">Cada monstro mostra os símbolos que o derrotam. Desenhe o símbolo e o feitiço atinge todos os monstros que têm ele em primeiro lugar. Não deixe que cheguem ao chão!</p>
+      </div>
+      <div class="linha">
+        <button class="btn ouro" id="btnJogar">Iniciar duelo</button>
+        <button class="btn sec" id="btnTelaCheia">Tela cheia</button>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Feitiços</div>
+        <div class="legenda" id="legenda"></div>
+      </div>
+      <div class="cartao">
+        <div class="rotulo">Ranking</div>
+        <ol class="rank" id="ranking"></ol>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "./lib/mediapipe/vision_bundle.mjs";
+const WASM_URL = new URL("./lib/mediapipe/wasm", location.href).href;
+const TFJS_WASM_URL = "./lib/tfjs-wasm/";
+const MODELO_MAO_URL = "./modelo/hand_landmarker.task";
+
+/* =====================================================================
+   CONFIGURAÇÃO
+   ===================================================================== */
+const SIMBOLOS = [
+  { id: "raio",      nome: "Zigue-zague", feitico: "Raio",          cor: "#facc15" },
+  { id: "circulo",   nome: "Círculo",     feitico: "Bola de fogo",  cor: "#fb7185" },
+  { id: "triangulo", nome: "Triângulo",   feitico: "Terremoto",     cor: "#4ade80" },
+  { id: "v",         nome: "V",           feitico: "Gelo",          cor: "#67e8f9" },
+  { id: "onda",      nome: "Onda",        feitico: "Tsunami",       cor: "#60a5fa" },
+];
+const IDS = SIMBOLOS.map(s => s.id);
+const C = SIMBOLOS.length;
+const N = 32;            // pontos por traço (passos de tempo da LSTM)
+const F = 4;             // características por ponto: x, y, dx, dy
+const META = 40;         // exemplos sugeridos por símbolo
+const LIMIAR = 0.6;      // confiança mínima para lançar o feitiço
+const CHAVE_DADOS = "duelo_feiticos_dados_v1";
+const CHAVE_RANK = "duelo_feiticos_ranking_v1";
+const CHAVE_MODELO = "localstorage://duelo-feiticos-lstm";
+
+const $ = id => document.getElementById(id);
+const tela = $("tela"), ctx = tela.getContext("2d");
+const W = tela.width, H = tela.height;
+const video = $("video");
+const porId = Object.fromEntries(SIMBOLOS.map(s => [s.id, s]));
+
+/* =====================================================================
+   ARMAZENAMENTO
+   ===================================================================== */
+function lerJSON(chave, padrao) {
+  try { const v = localStorage.getItem(chave); return v ? JSON.parse(v) : padrao; } catch { return padrao; }
+}
+function gravarJSON(chave, valor) {
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch (e) { console.warn("Não salvou:", e); }
+}
+let dados = lerJSON(CHAVE_DADOS, {});
+for (const id of IDS) if (!Array.isArray(dados[id])) dados[id] = [];
+const salvarDados = () => gravarJSON(CHAVE_DADOS, dados);
+let ranking = lerJSON(CHAVE_RANK, []);
+
+/* =====================================================================
+   PRÉ-PROCESSAMENTO DO TRAÇO
+   ===================================================================== */
+function comprimento(pts) {
+  let s = 0;
+  for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return s;
+}
+// Reamostra o traço em N pontos igualmente espaçados ao longo do caminho
+function reamostrar(pts, n = N) {
+  const total = comprimento(pts);
+  if (total === 0) return Array.from({ length: n }, () => [...pts[0]]);
+  const passo = total / (n - 1);
+  const saida = [[...pts[0]]];
+  let acumulado = 0, i = 1, anterior = [...pts[0]];
+  while (saida.length < n && i < pts.length) {
+    const atual = pts[i];
+    const d = Math.hypot(atual[0] - anterior[0], atual[1] - anterior[1]);
+    if (acumulado + d >= passo && d > 0) {
+      const t = (passo - acumulado) / d;
+      const novo = [anterior[0] + t * (atual[0] - anterior[0]), anterior[1] + t * (atual[1] - anterior[1])];
+      saida.push(novo);
+      anterior = novo;
+      acumulado = 0;
+    } else {
+      acumulado += d;
+      anterior = atual;
+      i++;
+    }
+  }
+  while (saida.length < n) saida.push([...pts[pts.length - 1]]);
+  return saida;
+}
+// Centraliza e ajusta a escala: não importa onde nem de que tamanho a pessoa desenhou
+function normalizar(pts) {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const cx = xs.reduce((a, b) => a + b, 0) / pts.length, cy = ys.reduce((a, b) => a + b, 0) / pts.length;
+  const escala = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2 || 1;
+  return pts.map(p => [(p[0] - cx) / escala, (p[1] - cy) / escala]);
+}
+// Cada ponto vira [x, y, dx, dy]: posição + direção do movimento
+function caracteristicas(norm) {
+  return norm.map((p, i) => {
+    const q = i < norm.length - 1 ? norm[i + 1] : p;
+    const r = i < norm.length - 1 ? p : norm[i - 1];
+    const dx = i < norm.length - 1 ? q[0] - p[0] : p[0] - r[0];
+    const dy = i < norm.length - 1 ? q[1] - p[1] : p[1] - r[1];
+    return [p[0], p[1], dx * 4, dy * 4];
+  });
+}
+// Data augmentation: gira, estica e treme um pouco o traço
+function variar(norm) {
+  const ang = (Math.random() - 0.5) * 0.5;               // ±14 graus
+  const sx = 0.85 + Math.random() * 0.3, sy = 0.85 + Math.random() * 0.3;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const v = norm.map(([x, y]) => {
+    const a = x * sx, b = y * sy;
+    return [a * cos - b * sin + (Math.random() - 0.5) * 0.06, a * sin + b * cos + (Math.random() - 0.5) * 0.06];
+  });
+  return normalizar(v);
+}
+
+/* =====================================================================
+   REDE NEURAL LSTM (TensorFlow.js)
+   ===================================================================== */
+let modelo = null;
+
+function criarModelo() {
+  const m = tf.sequential();
+  m.add(tf.layers.lstm({ units: 48, returnSequences: true, inputShape: [N, F] })); // lê o traço ponto a ponto
+  m.add(tf.layers.dropout({ rate: 0.2 }));
+  m.add(tf.layers.lstm({ units: 24 }));                                           // resume o traço inteiro
+  m.add(tf.layers.dense({ units: 24, activation: "relu" }));
+  m.add(tf.layers.dense({ units: C, activation: "softmax" }));                    // probabilidade de cada símbolo
+  m.compile({ optimizer: tf.train.adam(0.003), loss: "categoricalCrossentropy", metrics: ["accuracy"] });
+  return m;
+}
+
+function textoArquitetura(m) {
+  const params = m ? m.countParams() : criarModelo().countParams();
+  return [
+    `Entrada   32 pontos × 4 valores (x, y, dx, dy)`,
+    `LSTM      48 neurônios (lê ponto a ponto)`,
+    `Dropout   20%`,
+    `LSTM      24 neurônios (resume o traço)`,
+    `Dense     24 · ReLU`,
+    `Saída     ${C} · Softmax (um por símbolo)`,
+    ``,
+    `Parâmetros treináveis: ${params.toLocaleString("pt-BR")}`,
+    `Otimizador Adam · loss: entropia cruzada · backend: ${tf.getBackend()}`,
+    `Modelo salvo: ${modelo ? "sim ✓" : "não"}`,
+  ].join("\n");
+}
+
+function prever(norm) {
+  if (!modelo) return null;
+  return tf.tidy(() => Array.from(modelo.predict(tf.tensor3d([caracteristicas(norm)])).dataSync()));
+}
+
+function embaralhar(arr) {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  return arr;
+}
+
+async function treinar() {
+  const faltando = SIMBOLOS.filter(s => dados[s.id].length < 5);
+  if (faltando.length) {
+    $("msgTreino").textContent = `Grave pelo menos 5 exemplos de: ${faltando.map(s => s.nome).join(", ")} (meta: ${META}).`;
+    return;
+  }
+  const epocas = Math.max(5, Math.min(300, +$("inpEpocas").value || 60));
+  const nAug = Math.max(0, Math.min(10, +$("inpAug").value || 0));
+  $("btnTreinar").disabled = true;
+
+  // Separação estratificada 80% treino / 20% validação
+  const treinoX = [], treinoY = [], valX = [], valY = [];
+  SIMBOLOS.forEach((s, c) => {
+    const exemplos = embaralhar([...dados[s.id]]);
+    const nVal = Math.max(1, Math.round(exemplos.length * 0.2));
+    exemplos.forEach((ex, i) => {
+      if (i < nVal) { valX.push(caracteristicas(ex)); valY.push(c); }
+      else {
+        treinoX.push(caracteristicas(ex)); treinoY.push(c);
+        for (let k = 0; k < nAug; k++) { treinoX.push(caracteristicas(variar(ex))); treinoY.push(c); }
+      }
+    });
+  });
+  const ordem = embaralhar([...treinoX.keys()]);
+  const xs = tf.tensor3d(ordem.map(i => treinoX[i]));
+  const ys = tf.oneHot(tf.tensor1d(ordem.map(i => treinoY[i]), "int32"), C);
+  const xv = tf.tensor3d(valX);
+  const yv = tf.oneHot(tf.tensor1d(valY, "int32"), C);
+
+  if (modelo) modelo.dispose();
+  modelo = criarModelo();
+  const hist = { loss: [], val_loss: [], acc: [], val_acc: [] };
+  let melhor = Infinity, semMelhora = 0;
+  const t0 = performance.now();
+  $("msgTreino").textContent = `Treinando com ${treinoX.length} sequências (validação: ${valX.length})...`;
+
+  await modelo.fit(xs, ys, {
+    epochs: epocas, batchSize: 32, validationData: [xv, yv], shuffle: true,
+    callbacks: {
+      onEpochEnd: async (ep, logs) => {
+        hist.loss.push(logs.loss); hist.val_loss.push(logs.val_loss);
+        hist.acc.push(logs.acc ?? logs.accuracy); hist.val_acc.push(logs.val_acc ?? logs.val_accuracy);
+        desenharGraficos(hist, epocas);
+        $("msgTreino").textContent = `Época ${ep + 1}/${epocas} · loss ${logs.loss.toFixed(3)} · acurácia de validação ${(hist.val_acc.at(-1) * 100).toFixed(1)}%`;
+        // Parada antecipada: para quando a validação deixa de melhorar
+        if (logs.val_loss < melhor - 1e-4) { melhor = logs.val_loss; semMelhora = 0; }
+        else if (++semMelhora >= 10) modelo.stopTraining = true;
+        await tf.nextFrame();
+      },
+    },
+  });
+
+  // Avaliação na validação
+  const pred = tf.tidy(() => Array.from(modelo.predict(xv).argMax(-1).dataSync()));
+  const cm = Array.from({ length: C }, () => Array(C).fill(0));
+  let acertos = 0;
+  pred.forEach((p, i) => { cm[valY[i]][p]++; if (p === valY[i]) acertos++; });
+  const acc = acertos / valY.length;
+  mostrarMatriz(cm);
+  tf.dispose([xs, ys, xv, yv]);
+
+  await modelo.save(CHAVE_MODELO);
+  const seg = ((performance.now() - t0) / 1000).toFixed(0);
+  $("msgTreino").innerHTML = `<b style="color:var(--verde)">Pronto!</b> Acurácia na validação: <b>${(acc * 100).toFixed(1)}%</b> · ${hist.loss.length} épocas · ${seg} s · modelo salvo no navegador.`;
+  $("arquitetura").textContent = textoArquitetura(modelo);
+  $("btnTreinar").disabled = false;
+}
+
+function mostrarMatriz(cm) {
+  let html = `<table class="cm"><tr><th>real ↓ / previsto →</th>${SIMBOLOS.map(s => `<th>${s.nome}</th>`).join("")}</tr>`;
+  cm.forEach((linha, i) => {
+    const total = linha.reduce((a, b) => a + b, 0) || 1;
+    html += `<tr><th>${SIMBOLOS[i].nome}</th>${linha.map((v, j) => {
+      const a = v / total;
+      const cor = i === j ? `rgba(74,222,128,${0.15 + a * 0.6})` : (v ? `rgba(248,113,113,${0.2 + a * 0.6})` : "transparent");
+      return `<td style="background:${cor};color:#fff;font-weight:700">${v}</td>`;
+    }).join("")}</tr>`;
+  });
+  $("matriz").innerHTML = html + "</table>";
+}
+
+function desenharGraficos(h, epocas) {
+  grafico($("grafLoss"), [h.loss, h.val_loss], epocas, Math.max(0.5, ...h.loss.slice(0, 3), ...h.val_loss.slice(0, 3)));
+  grafico($("grafAcc"), [h.acc, h.val_acc], epocas, 1);
+}
+function grafico(cv, series, xMax, yMax) {
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height, m = 30;
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = "#2e2a55"; g.fillStyle = "#9b95c9"; g.font = "18px Inter, sans-serif"; g.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) {
+    const y = m / 2 + (h - m) * k / 4;
+    g.beginPath(); g.moveTo(m, y); g.lineTo(w - 8, y); g.stroke();
+    g.fillText((yMax * (1 - k / 4)).toFixed(yMax <= 1 ? 2 : 1), 0, y + 6);
+  }
+  ["#c084fc", "#f5c84c"].forEach((cor, s) => {
+    const d = series[s]; if (!d.length) return;
+    g.strokeStyle = cor; g.lineWidth = 3; g.beginPath();
+    d.forEach((v, i) => {
+      const x = m + (w - m - 8) * (i / Math.max(1, xMax - 1));
+      const y = m / 2 + (h - m) * (1 - Math.min(v, yMax) / yMax);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    });
+    g.stroke();
+  });
+}
+
+/* =====================================================================
+   DESENHO DOS SÍMBOLOS (ícones)
+   ===================================================================== */
+function desenharSimbolo(g, id, cx, cy, r, cor, lw = 4) {
+  g.save();
+  g.strokeStyle = cor; g.lineWidth = lw; g.lineCap = "round"; g.lineJoin = "round";
+  g.beginPath();
+  if (id === "circulo") g.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+  else if (id === "triangulo") { g.moveTo(cx, cy - r * 0.9); g.lineTo(cx + r * 0.9, cy + r * 0.75); g.lineTo(cx - r * 0.9, cy + r * 0.75); g.closePath(); }
+  else if (id === "v") { g.moveTo(cx - r * 0.85, cy - r * 0.8); g.lineTo(cx, cy + r * 0.85); g.lineTo(cx + r * 0.85, cy - r * 0.8); }
+  else if (id === "raio") { g.moveTo(cx - r * 0.5, cy - r * 0.95); g.lineTo(cx + r * 0.5, cy - r * 0.3); g.lineTo(cx - r * 0.5, cy + r * 0.3); g.lineTo(cx + r * 0.5, cy + r * 0.95); }
+  else if (id === "onda") { for (let k = 0; k <= 40; k++) { const t = k / 40, x = cx - r + 2 * r * t, y = cy - Math.sin(t * Math.PI * 3) * r * 0.45; k ? g.lineTo(x, y) : g.moveTo(x, y); } }
+  g.stroke();
+  g.restore();
+}
+function iconeCanvas(id, tam = 88, lw = 7) {
+  const c = document.createElement("canvas"); c.width = c.height = tam;
+  desenharSimbolo(c.getContext("2d"), id, tam / 2, tam / 2, tam * 0.36, porId[id].cor, lw);
+  return c;
+}
+
+function desenharSequencia(cv, norm, rotulo) {
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  if (!norm) return;
+  const esc = h * 0.4, cx = w / 2, cy = h / 2;
+  g.strokeStyle = "rgba(255,255,255,.15)"; g.lineWidth = 2; g.beginPath();
+  norm.forEach(([x, y], i) => i ? g.lineTo(cx + x * esc, cy + y * esc) : g.moveTo(cx + x * esc, cy + y * esc));
+  g.stroke();
+  norm.forEach(([x, y], i) => {
+    const t = i / (norm.length - 1);
+    g.fillStyle = `hsl(${270 - t * 225}, 90%, 65%)`;
+    g.beginPath(); g.arc(cx + x * esc, cy + y * esc, 6, 0, Math.PI * 2); g.fill();
+  });
+  g.fillStyle = "#9b95c9"; g.font = "20px Inter, sans-serif";
+  g.fillText("início", cx + norm[0][0] * esc + 10, cy + norm[0][1] * esc - 8);
+  if (rotulo) { g.fillStyle = "#ece8ff"; g.font = "600 22px Inter, sans-serif"; g.fillText(rotulo, 12, 28); }
+}
+
+/* =====================================================================
+   INTERFACE: ABAS, COLETA, TESTE
+   ===================================================================== */
+let abaAtual = "coleta";
+let simboloColeta = IDS[0];
+
+document.querySelectorAll("#abas button").forEach(b => b.addEventListener("click", () => {
+  abaAtual = b.dataset.aba;
+  document.querySelectorAll("#abas button").forEach(x => x.classList.toggle("ativa", x === b));
+  document.querySelectorAll(".aba").forEach(a => a.classList.toggle("ativa", a.id === "aba-" + abaAtual));
+  if (abaAtual !== "jogo" && jogo.ativo) pararJogo(false);
+  if (abaAtual === "treino") $("arquitetura").textContent = textoArquitetura(modelo);
+}));
+
+function montarSeletor() {
+  const box = $("selColeta"); box.innerHTML = "";
+  SIMBOLOS.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "simb" + (s.id === simboloColeta ? " sel" : "");
+    b.appendChild(iconeCanvas(s.id));
+    b.insertAdjacentHTML("beforeend", `${s.nome}<br><span class="n">${dados[s.id].length}</span>`);
+    b.onclick = () => { simboloColeta = s.id; montarSeletor(); };
+    box.appendChild(b);
+  });
+  const total = IDS.reduce((a, id) => a + dados[id].length, 0);
+  const completo = IDS.reduce((a, id) => a + Math.min(META, dados[id].length), 0);
+  $("totalEx").textContent = `${total} exemplos`;
+  $("metaEx").textContent = `meta: ${META} por símbolo`;
+  $("barraTotal").style.width = `${(completo / (META * C)) * 100}%`;
+}
+
+function montarLegenda() {
+  const box = $("legenda"); box.innerHTML = "";
+  SIMBOLOS.forEach(s => {
+    box.appendChild(iconeCanvas(s.id, 72, 6));
+    box.insertAdjacentHTML("beforeend", `<div><b style="color:${s.cor}">${s.feitico}</b> <span style="color:var(--suave)">· ${s.nome}</span></div>`);
+  });
+}
+
+function mostrarProbs(probs) {
+  const ordem = probs.map((p, i) => [p, i]).sort((a, b) => b[0] - a[0]);
+  $("probsTeste").innerHTML = ordem.map(([p, i], k) => `
+    <div class="prob ${k === 0 && p >= LIMIAR ? "top" : ""}"><span>${SIMBOLOS[i].nome}</span>
+    <div class="barra"><div style="width:${(p * 100).toFixed(1)}%"></div></div><span>${(p * 100).toFixed(0)}%</span></div>`).join("");
+}
+
+$("btnDesfazer").onclick = () => { dados[simboloColeta].pop(); salvarDados(); montarSeletor(); };
+$("btnLimparClasse").onclick = () => {
+  if (confirm(`Apagar todos os exemplos de "${porId[simboloColeta].nome}"?`)) { dados[simboloColeta] = []; salvarDados(); montarSeletor(); }
+};
+$("btnExportar").onclick = () => {
+  const blob = new Blob([JSON.stringify({ versao: 1, n: N, dados })], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `dataset_feiticos_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+};
+$("btnImportar").onclick = () => $("arqImportar").click();
+$("arqImportar").onchange = async e => {
+  const arq = e.target.files[0]; if (!arq) return;
+  try {
+    const json = JSON.parse(await arq.text());
+    let n = 0;
+    for (const id of IDS) for (const ex of (json.dados?.[id] || [])) if (Array.isArray(ex) && ex.length === N) { dados[id].push(ex); n++; }
+    salvarDados(); montarSeletor();
+    alert(`${n} exemplos importados.`);
+  } catch { alert("Arquivo inválido."); }
+  e.target.value = "";
+};
+$("btnTreinar").onclick = () => treinar().catch(err => { console.error(err); $("msgTreino").textContent = "Erro no treino: " + err.message; $("btnTreinar").disabled = false; });
+$("btnApagarModelo").onclick = async () => {
+  if (!confirm("Apagar o modelo treinado?")) return;
+  try { await tf.io.removeModel(CHAVE_MODELO); } catch {}
+  modelo = null; $("arquitetura").textContent = textoArquitetura(null);
+};
+
+/* =====================================================================
+   CÂMERA + MEDIAPIPE (detecção da mão)
+   ===================================================================== */
+let detector = null, ultimoTempoVideo = -1;
+let mao = null;                 // pontos da mão já convertidos para a tela
+let canetaMao = false, contaSim = 0, contaNao = 0, pontaSuave = null;
+
+$("btnCamera").onclick = async () => {
+  $("btnCamera").disabled = true;
+  $("msgCamera").textContent = "Carregando o detector de mãos (MediaPipe)...";
+  try {
+    const visao = await FilesetResolver.forVisionTasks(WASM_URL);
+    const opcoes = d => ({ baseOptions: { modelAssetPath: MODELO_MAO_URL, delegate: d }, runningMode: "VIDEO", numHands: 1,
+                           minHandDetectionConfidence: 0.6, minHandPresenceConfidence: 0.6, minTrackingConfidence: 0.5 });
+    try { detector = await HandLandmarker.createFromOptions(visao, opcoes("GPU")); }
+    catch { detector = await HandLandmarker.createFromOptions(visao, opcoes("CPU")); }
+    $("msgCamera").textContent = "Abrindo a câmera...";
+    video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: "user" }, audio: false });
+    await video.play();
+    $("ovInicio").classList.add("oculto");
+    $("status").textContent = "Câmera ligada · aponte o indicador para desenhar";
+  } catch (err) {
+    console.error(err);
+    $("btnCamera").disabled = false;
+    const semModelo = /fetch|404|hand_landmarker/i.test(err.message || "");
+    $("msgCamera").innerHTML = semModelo
+      ? `Modelo da mão não encontrado na pasta <b>modelo</b>.<br>Rode o <b>INICIAR.bat</b> uma vez com internet para baixá-lo. Enquanto isso, use o mouse.`
+      : `Não foi possível ligar: ${err.message}<br>Você ainda pode usar o mouse.`;
+    setTimeout(() => $("ovInicio").classList.add("oculto"), 6000);
+  }
+};
+
+function areaVideo() {
+  const vw = video.videoWidth || 16, vh = video.videoHeight || 9;
+  const s = Math.max(W / vw, H / vh);
+  return { s, ox: (W - vw * s) / 2, oy: (H - vh * s) / 2, vw, vh };
+}
+// Coordenada do MediaPipe (0 a 1) -> pixel da tela, já espelhado
+function paraTela(p, a) { return [W - (a.ox + p.x * a.vw * a.s), a.oy + p.y * a.vh * a.s]; }
+
+// Indicador esticado e médio + anelar dobrados = "caneta" ligada
+function apontando(lm) {
+  const d = (i, j) => Math.hypot(lm[i].x - lm[j].x, lm[i].y - lm[j].y);
+  const indice = d(8, 0) > d(6, 0) * 1.15;
+  const medio = d(12, 0) < d(10, 0) * 1.05;
+  const anelar = d(16, 0) < d(14, 0) * 1.05;
+  return indice && medio && anelar;
+}
+
+function processarMao() {
+  if (!detector || video.readyState < 2 || video.currentTime === ultimoTempoVideo) return;
+  ultimoTempoVideo = video.currentTime;
+  const res = detector.detectForVideo(video, performance.now());
+  const a = areaVideo();
+  if (res.landmarks && res.landmarks.length) {
+    const lm = res.landmarks[0];
+    mao = lm.map(p => paraTela(p, a));
+    const ponta = mao[8];
+    pontaSuave = pontaSuave ? [pontaSuave[0] * 0.45 + ponta[0] * 0.55, pontaSuave[1] * 0.45 + ponta[1] * 0.55] : ponta;
+    const quer = apontando(lm) || espacoPressionado;
+    if (quer) { contaSim++; contaNao = 0; } else { contaNao++; contaSim = 0; }
+  } else {
+    mao = null; pontaSuave = null; contaNao++; contaSim = 0;
+  }
+  // Histerese: evita ligar/desligar a caneta por engano
+  if (!canetaMao && contaSim >= 2 && pontaSuave && fonte !== "mouse") { canetaMao = true; iniciarTraco("mao"); }
+  if (canetaMao && contaNao >= 4) { canetaMao = false; finalizarTraco(); }
+  if (canetaMao && pontaSuave) adicionarPonto(pontaSuave);
+}
+
+let espacoPressionado = false;
+addEventListener("keydown", e => { if (e.code === "Space" && e.target.tagName !== "INPUT") { espacoPressionado = true; e.preventDefault(); } });
+addEventListener("keyup", e => { if (e.code === "Space") espacoPressionado = false; });
+
+/* =====================================================================
+   TRAÇO (mão ou mouse)
+   ===================================================================== */
+let traco = [], fonte = null, rastroFinal = null;
+
+function iniciarTraco(origem) { fonte = origem; traco = []; }
+function adicionarPonto(p) { const u = traco.at(-1); if (!u || Math.hypot(p[0] - u[0], p[1] - u[1]) > 1.5) traco.push([p[0], p[1]]); }
+function finalizarTraco() {
+  const pts = traco; traco = []; fonte = null;
+  if (pts.length < 6 || comprimento(pts) < H * 0.08) return;   // traço curto demais: ignora
+  rastroFinal = { pts, t: performance.now() };
+  const norm = normalizar(reamostrar(pts));
+  aoTerminarTraco(norm);
+}
+
+function pontoDoMouse(e) {
+  const r = tela.getBoundingClientRect();
+  return [(e.clientX - r.left) * (W / r.width), (e.clientY - r.top) * (H / r.height)];
+}
+tela.addEventListener("pointerdown", e => { if (canetaMao) return; tela.setPointerCapture(e.pointerId); iniciarTraco("mouse"); adicionarPonto(pontoDoMouse(e)); });
+tela.addEventListener("pointermove", e => { if (fonte === "mouse") adicionarPonto(pontoDoMouse(e)); });
+const soltar = () => { if (fonte === "mouse") finalizarTraco(); };
+tela.addEventListener("pointerup", soltar);
+tela.addEventListener("pointercancel", soltar);
+
+let avisoTela = null;   // texto grande temporário na tela
+function avisar(texto, cor = "#ece8ff") { avisoTela = { texto, cor, t: performance.now() }; }
+
+function aoTerminarTraco(norm) {
+  if (abaAtual === "coleta") {
+    dados[simboloColeta].push(norm.map(([x, y]) => [+x.toFixed(4), +y.toFixed(4)]));
+    salvarDados(); montarSeletor();
+    desenharSequencia($("miniColeta"), norm, `${porId[simboloColeta].nome} #${dados[simboloColeta].length}`);
+    avisar(`+1 ${porId[simboloColeta].nome}  (${dados[simboloColeta].length})`, porId[simboloColeta].cor);
+    return;
+  }
+  const probs = prever(norm);
+  if (!probs) { avisar("Treine a LSTM primeiro (aba 2)", "#f87171"); return; }
+  const i = probs.indexOf(Math.max(...probs));
+  if (abaAtual === "teste") {
+    desenharSequencia($("miniTeste"), norm);
+    mostrarProbs(probs);
+    avisar(probs[i] >= LIMIAR ? `${SIMBOLOS[i].nome} · ${(probs[i] * 100).toFixed(0)}%` : "Não reconhecido", probs[i] >= LIMIAR ? SIMBOLOS[i].cor : "#f87171");
+  } else if (abaAtual === "jogo") {
+    if (!jogo.ativo) return;
+    if (probs[i] >= LIMIAR) lancarFeitico(SIMBOLOS[i].id, probs[i]);
+    else { avisar("O feitiço falhou!", "#f87171"); jogo.combo = 0; }
+  }
+}
+
+/* =====================================================================
+   JOGO
+   ===================================================================== */
+const jogo = { ativo: false, monstros: [], particulas: [], raios: [], vidas: 3, pontos: 0, combo: 0, abatidos: 0,
+               t0: 0, proximo: 0, tremor: 0, fimAgendado: false };
+const CHAO = H - 70;
+
+function iniciarJogo() {
+  if (!modelo) { avisar("Treine a LSTM primeiro (aba 2)", "#f87171"); return; }
+  Object.assign(jogo, { ativo: true, monstros: [], particulas: [], raios: [], vidas: 3, pontos: 0, combo: 0, abatidos: 0,
+                        t0: performance.now(), proximo: performance.now() + 800, tremor: 0 });
+  $("ovFim").classList.add("oculto");
+  $("btnJogar").textContent = "Reiniciar duelo";
+  avisar("Prepare-se!", "#f5c84c");
+}
+function pararJogo(mostrarFim = true) {
+  jogo.ativo = false;
+  $("btnJogar").textContent = "Iniciar duelo";
+  if (mostrarFim) {
+    const seg = ((performance.now() - jogo.t0) / 1000).toFixed(0);
+    $("fimPontos").textContent = `${jogo.pontos} pontos`;
+    $("fimInfo").textContent = `${jogo.abatidos} monstros derrotados em ${seg} segundos`;
+    $("inpNome").value = "";
+    $("ovFim").classList.remove("oculto");
+    setTimeout(() => $("inpNome").focus(), 50);
+  }
+}
+function salvarRanking(nome) {
+  ranking.push({ nome: nome || "Anônimo", pontos: jogo.pontos, data: new Date().toLocaleDateString("pt-BR") });
+  ranking.sort((a, b) => b.pontos - a.pontos);
+  ranking = ranking.slice(0, 50);
+  gravarJSON(CHAVE_RANK, ranking);
+  montarRanking();
+  $("ovFim").classList.add("oculto");
+}
+function montarRanking() {
+  $("ranking").innerHTML = ranking.length
+    ? ranking.slice(0, 8).map(r => `<li><span>${r.nome.replace(/[<>&]/g, "")}</span><b>${r.pontos}</b></li>`).join("")
+    : `<li style="color:var(--suave)">Ninguém ainda. Seja o primeiro!</li>`;
+}
+$("btnJogar").onclick = iniciarJogo;
+$("btnSalvarNome").onclick = () => salvarRanking($("inpNome").value.trim());
+$("btnPular").onclick = () => $("ovFim").classList.add("oculto");
+$("inpNome").addEventListener("keydown", e => { if (e.key === "Enter") salvarRanking($("inpNome").value.trim()); });
+$("btnTelaCheia").onclick = () => { const p = $("palco"); document.fullscreenElement ? document.exitFullscreen() : p.requestFullscreen?.(); };
+
+function criarMonstro() {
+  const seg = (performance.now() - jogo.t0) / 1000;
+  const nSimb = seg < 20 ? 1 : seg < 45 ? 1 + (Math.random() < 0.5) : 1 + Math.floor(Math.random() * 3);
+  const simbolos = Array.from({ length: nSimb }, () => IDS[Math.floor(Math.random() * C)]);
+  const vel = (32 + seg * 1.1) * (0.85 + Math.random() * 0.3);
+  jogo.monstros.push({ x: 110 + Math.random() * (W - 220), y: -50, simbolos, vel, fase: Math.random() * 6,
+                       cor: `hsl(${Math.floor(Math.random() * 360)}, 55%, 45%)`, dano: 0 });
+}
+
+function lancarFeitico(id, conf) {
+  const s = porId[id];
+  const alvos = jogo.monstros.filter(m => m.simbolos[0] === id);
+  avisar(`${s.feitico}!  ${(conf * 100).toFixed(0)}%`, s.cor);
+  if (!alvos.length) { jogo.combo = 0; return; }
+  jogo.combo++;
+  for (const m of alvos) {
+    jogo.raios.push({ x1: W / 2, y1: H - 20, x2: m.x, y2: m.y, cor: s.cor, t: performance.now() });
+    m.simbolos.shift(); m.dano = 1;
+    explodir(m.x, m.y, s.cor, 18);
+    if (!m.simbolos.length) {
+      m.morto = true;
+      jogo.abatidos++;
+      jogo.pontos += 10 * Math.min(jogo.combo, 5);
+      explodir(m.x, m.y, m.cor, 40);
+    }
+  }
+  jogo.monstros = jogo.monstros.filter(m => !m.morto);
+}
+function explodir(x, y, cor, n) {
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 260;
+    jogo.particulas.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vida: 0.5 + Math.random() * 0.6, cor });
+  }
+}
+
+function atualizarJogo(dt, agora) {
+  if (!jogo.ativo) return;
+  const seg = (agora - jogo.t0) / 1000;
+  if (agora >= jogo.proximo) {
+    criarMonstro();
+    jogo.proximo = agora + Math.max(900, 3000 - seg * 35) * (0.75 + Math.random() * 0.5);
+  }
+  for (const m of jogo.monstros) {
+    m.y += m.vel * dt; m.fase += dt * 3; m.dano = Math.max(0, m.dano - dt * 3);
+    if (m.y >= CHAO - 30) { m.chegou = true; jogo.vidas--; jogo.tremor = 0.4; jogo.combo = 0; explodir(m.x, CHAO, "#f87171", 30); }
+  }
+  jogo.monstros = jogo.monstros.filter(m => !m.chegou);
+  if (jogo.vidas <= 0) pararJogo(true);
+}
+
+function desenharMonstro(m) {
+  const balanco = Math.sin(m.fase) * 6;
+  ctx.save();
+  ctx.translate(m.x + balanco, m.y);
+  ctx.fillStyle = m.dano > 0 ? "#fff" : m.cor;
+  ctx.shadowColor = m.cor; ctx.shadowBlur = 25;
+  ctx.beginPath(); ctx.ellipse(0, 0, 40, 34, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // chifres
+  ctx.beginPath(); ctx.moveTo(-26, -22); ctx.lineTo(-34, -44); ctx.lineTo(-14, -30); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(26, -22); ctx.lineTo(34, -44); ctx.lineTo(14, -30); ctx.fill();
+  // olhos e boca
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(-13, -6, 9, 0, Math.PI * 2); ctx.arc(13, -6, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#111";
+  ctx.beginPath(); ctx.arc(-11, -4, 4, 0, Math.PI * 2); ctx.arc(15, -4, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-14, 14); ctx.lineTo(-7, 9); ctx.lineTo(0, 14); ctx.lineTo(7, 9); ctx.lineTo(14, 14); ctx.stroke();
+  // símbolos que derrotam o monstro
+  const larg = m.simbolos.length * 46;
+  ctx.fillStyle = "rgba(10,8,25,.75)";
+  ctx.beginPath(); ctx.roundRect(-larg / 2 - 6, -100, larg + 12, 48, 12); ctx.fill();
+  m.simbolos.forEach((id, k) => desenharSimbolo(ctx, id, -larg / 2 + 23 + k * 46, -76, 16, k === 0 ? porId[id].cor : "rgba(255,255,255,.35)", 4));
+  ctx.restore();
+}
+
+function desenharJogo(dt, agora) {
+  // chão
+  const grad = ctx.createLinearGradient(0, CHAO, 0, H);
+  grad.addColorStop(0, "rgba(139,92,246,.0)"); grad.addColorStop(1, "rgba(139,92,246,.45)");
+  ctx.fillStyle = grad; ctx.fillRect(0, CHAO - 20, W, H - CHAO + 20);
+  ctx.strokeStyle = "rgba(245,200,76,.6)"; ctx.lineWidth = 3; ctx.setLineDash([14, 10]);
+  ctx.beginPath(); ctx.moveTo(0, CHAO); ctx.lineTo(W, CHAO); ctx.stroke(); ctx.setLineDash([]);
+
+  jogo.monstros.forEach(desenharMonstro);
+
+  // raios de feitiço
+  jogo.raios = jogo.raios.filter(r => agora - r.t < 350);
+  for (const r of jogo.raios) {
+    const a = 1 - (agora - r.t) / 350;
+    ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = r.cor; ctx.lineWidth = 10 * a + 2; ctx.shadowColor = r.cor; ctx.shadowBlur = 30;
+    ctx.beginPath(); ctx.moveTo(r.x1, r.y1);
+    for (let k = 1; k <= 6; k++) { const t = k / 6; ctx.lineTo(r.x1 + (r.x2 - r.x1) * t + (k < 6 ? (Math.random() - 0.5) * 40 : 0), r.y1 + (r.y2 - r.y1) * t); }
+    ctx.stroke(); ctx.restore();
+  }
+  // partículas
+  for (const p of jogo.particulas) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.vida -= dt; }
+  jogo.particulas = jogo.particulas.filter(p => p.vida > 0);
+  for (const p of jogo.particulas) { ctx.globalAlpha = Math.min(1, p.vida * 2); ctx.fillStyle = p.cor; ctx.fillRect(p.x - 3, p.y - 3, 6, 6); }
+  ctx.globalAlpha = 1;
+
+  // HUD
+  if (jogo.ativo || jogo.pontos) {
+    ctx.fillStyle = "rgba(10,8,25,.6)"; ctx.beginPath(); ctx.roundRect(16, 14, 420, 54, 14); ctx.fill();
+    ctx.font = "700 30px Cinzel, serif"; ctx.fillStyle = "#f5c84c"; ctx.fillText(`${jogo.pontos}`, 34, 52);
+    ctx.font = "600 20px Inter, sans-serif"; ctx.fillStyle = "#ece8ff";
+    ctx.fillText(`combo x${Math.max(1, Math.min(jogo.combo, 5))}`, 150, 49);
+    ctx.fillStyle = "#fb7185"; ctx.fillText("♥".repeat(Math.max(0, jogo.vidas)) + "♡".repeat(3 - Math.max(0, jogo.vidas)), 300, 50);
+  }
+}
+
+/* =====================================================================
+   LAÇO PRINCIPAL DE DESENHO
+   ===================================================================== */
+let ultimo = performance.now();
+function quadro(agora) {
+  const dt = Math.min(0.05, (agora - ultimo) / 1000); ultimo = agora;
+  processarMao();
+  atualizarJogo(dt, agora);
+
+  const tremor = jogo.tremor > 0 ? (jogo.tremor -= dt, (Math.random() - 0.5) * 16) : 0;
+  ctx.save();
+  ctx.translate(tremor, 0);
+  ctx.fillStyle = "#07061a"; ctx.fillRect(-20, 0, W + 40, H);
+  if (video.readyState >= 2) {
+    const a = areaVideo();
+    ctx.save(); ctx.globalAlpha = abaAtual === "jogo" ? 0.35 : 0.85;
+    ctx.translate(W, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, a.ox, a.oy, a.vw * a.s, a.vh * a.s);
+    ctx.restore();
+  } else if (abaAtual !== "jogo") {
+    ctx.fillStyle = "rgba(155,149,201,.25)"; ctx.font = "600 26px Inter, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Desenhe aqui com o mouse ou ligue a câmera", W / 2, H / 2); ctx.textAlign = "left";
+  }
+
+  if (abaAtual === "jogo") desenharJogo(dt, agora);
+  else if (abaAtual === "coleta") {
+    ctx.save(); ctx.globalAlpha = 0.18; desenharSimbolo(ctx, simboloColeta, W / 2, H / 2, 190, porId[simboloColeta].cor, 14); ctx.restore();
+    ctx.fillStyle = "rgba(10,8,25,.6)"; ctx.beginPath(); ctx.roundRect(16, 14, 430, 50, 12); ctx.fill();
+    ctx.fillStyle = "#ece8ff"; ctx.font = "600 22px Inter, sans-serif";
+    ctx.fillText(`Desenhe: ${porId[simboloColeta].nome}  ·  ${dados[simboloColeta].length} exemplos`, 32, 47);
+  }
+
+  // mão
+  if (mao) {
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    for (const [x, y] of mao) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+    if (pontaSuave) {
+      ctx.strokeStyle = canetaMao ? "#f5c84c" : "rgba(255,255,255,.8)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(pontaSuave[0], pontaSuave[1], canetaMao ? 14 : 10, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  // traço em andamento (brilho mágico)
+  const desenharRastro = (pts, alfa) => {
+    if (pts.length < 2) return;
+    ctx.save(); ctx.globalAlpha = alfa; ctx.lineCap = ctx.lineJoin = "round";
+    ctx.shadowColor = "#c084fc"; ctx.shadowBlur = 30; ctx.strokeStyle = "#c084fc"; ctx.lineWidth = 14;
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.stroke();
+    ctx.restore();
+  };
+  desenharRastro(traco, 1);
+  if (rastroFinal) {
+    const a = 1 - (agora - rastroFinal.t) / 600;
+    if (a > 0) desenharRastro(rastroFinal.pts, a); else rastroFinal = null;
+  }
+  // aviso central
+  if (avisoTela) {
+    const idade = (agora - avisoTela.t) / 1000;
+    if (idade < 1.4) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, (1.4 - idade) * 2.5);
+      ctx.font = "800 54px Cinzel, serif"; ctx.textAlign = "center"; ctx.fillStyle = avisoTela.cor;
+      ctx.shadowColor = "#000"; ctx.shadowBlur = 16;
+      ctx.fillText(avisoTela.texto, W / 2, abaAtual === "jogo" ? H / 2 + 40 : 130 - idade * 20);
+      ctx.restore();
+    } else avisoTela = null;
+  }
+  ctx.restore();
+  requestAnimationFrame(quadro);
+}
+
+/* =====================================================================
+   INÍCIO
+   ===================================================================== */
+async function iniciar() {
+  // Backend WASM: treina a LSTM bem mais rápido que o padrão no navegador
+  try { tf.wasm.setWasmPaths(TFJS_WASM_URL); await tf.setBackend("wasm"); } catch (e) { console.warn("WASM indisponível, usando padrão", e); }
+  await tf.ready();
+  montarSeletor(); montarLegenda(); montarRanking();
+  try { modelo = await tf.loadLayersModel(CHAVE_MODELO); } catch { modelo = null; }
+  $("arquitetura").textContent = textoArquitetura(modelo);
+  requestAnimationFrame(quadro);
+}
+iniciar();
+
+// Ganchos para testes automatizados
+window.__duelo = { aoTerminarTraco, normalizar, reamostrar, dados, treinar, iniciarJogo, jogo, get modelo() { return modelo; },
+                   simular(pts) { traco = pts.map(p => [...p]); finalizarTraco(); } };
+</script>
+</body>
+</html>

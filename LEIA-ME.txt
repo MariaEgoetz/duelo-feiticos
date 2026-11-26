@@ -1,0 +1,15 @@
+DUELO DE FEITICOS - rede neural LSTM
+
+1. ANTES DA FEIRA (com internet, so uma vez)
+   De duplo clique em INICIAR.bat. Ele baixa o modelo da mao
+   para a pasta "modelo" e abre o jogo no navegador.
+
+2. DEPOIS (com ou sem internet)
+   Duplo clique em INICIAR.bat. O jogo abre em http://localhost:8000
+   Para fechar, feche a janela preta.
+
+IMPORTANTE
+- Nao abra o index.html direto: use sempre o INICIAR.bat.
+- Os dados gravados e o modelo treinado ficam salvos no navegador.
+  Use sempre o mesmo navegador (Chrome) e o mesmo notebook.
+- Faca backup com "Exportar dados" na aba Coleta.
